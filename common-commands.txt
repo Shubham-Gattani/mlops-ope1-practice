@@ -3,6 +3,10 @@
 gcloud auth login
 gcloud config list  # Confirm account = shubham29.gattani@gmail.com
 
+# CREATE BUCKET
+gsutil mb gs://YOUR_BUCKET_NAME 
+gsutil mb gs://mlops-ope1-shubhamg-practice-bucket # Create bucket
+
 # GIT THINGS
 git config --global user.name "Shubham-Gattani"
 git config --global user.email "shubham29.iitd@gmail.com"
@@ -15,16 +19,26 @@ pip install dvc==3.63.0 dvc-gs==3.0.2 pytest mlflow==3.5.0 ipykernel
 
 python -m ipykernel install --user --name=venv_name --display-name "Python (venv_name)" # Register the venv with Jupyter
 
-# FEAST THINGS
+# DVC THINGS
+
+dvc init
 
 ## Getting v0 of the data
-dvc init
 dvc get https://github.com/Shubham-Gattani/Continuous-Learning-Repo temp/v0
 dvc get <repo_url> <path_inside_repo> [--rev <branch_or_tag>]
-
 dvc add v0
 
+# Create features for v0 of data
+python python_files/feature_engineering.py --input_dir v0 --output_dir processed_data/processed_v0 
 
+dvc remote add -d gcsremote gs://mlops-ope1-shubhamg-practice-bucket
+dvc remote list # Check if the bucket is actually configured
+dvc push
+
+# FEAST related THINGS
+
+## Initialize Feast repo
+feast init feature_repo # Inside your project root:
 
 
 

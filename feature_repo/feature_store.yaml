@@ -1,0 +1,12 @@
+project: stock_prediction
+
+registry: gs://mlops-ope1-shubhamg-practice-bucket/feast/registry.db
+provider: gcp
+
+offline_store:
+  type: bigquery
+  dataset: feast_stock_features   # BigQuery dataset name (Feast will create it if needed)
+
+online_store:
+  type: sqlite
+  path: data/online_store.db
