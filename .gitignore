@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.env/
+venv/
+
+# DVC cache
+.dvc/
+
+# Data and models are tracked via DVC, so ignore local copies if you want
+# (optional, since DVC handles this)
+data/
+v0/
+v1/
+model.joblib
+/v0

@@ -1,0 +1,29 @@
+# GCP IMPs
+## If the CLI is using wrong account
+gcloud auth login
+gcloud config list  # Confirm account = shubham29.gattani@gmail.com
+
+# Creating VENV
+python -m venv venv
+source venv/bin/activate
+pip install gcsfs pandas numpy scikit-learn joblib feast
+pip install dvc==3.63.0 dvc-gs==3.0.2
+pip install pytest mlflow==3.5.0 ipykernel
+
+# FEAST THINGS
+
+## Getting v0 of the data
+dvc init
+dvc get https://github.com/Shubham-Gattani/Continuous-Learning-Repo temp/v0
+dvc get <repo_url> <path_inside_repo> [--rev <branch_or_tag>]
+
+dvc add v0
+
+
+
+
+
+
+
+
+
