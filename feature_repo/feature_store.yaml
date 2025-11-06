@@ -5,6 +5,7 @@ provider: gcp
 
 offline_store:
   type: bigquery
+  project_id: mlops-iris-week1-graded
   dataset: feast_stock_features   # BigQuery dataset name (Feast will create it if needed)
 
 online_store:

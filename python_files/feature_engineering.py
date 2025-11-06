@@ -27,15 +27,17 @@ def generate_features(input_dir: str, output_dir: str):
 
         # Drop rows where target is NaN (because of shift)
         df = df.dropna(subset=["target"]).reset_index(drop=True)
+        # Drop rows where future_close is NaN (end of dataset)
+        df = df.dropna(subset=["future_close"]).reset_index(drop=True)
 
         # Extract stock symbol from filename (e.g., AARTIIND__EQ__NSE__NSE__MINUTE.csv → AARTIIND)
         stock_symbol = file.split("__")[0]
         df["stock_symbol"] = stock_symbol
 
         # Save processed file
-        output_file = os.path.join(output_dir, f"processed_{file}")
-        df.to_csv(output_file, index=False)
-        print(f"✅ Saved processed file to: {output_file}")
+        output_file = os.path.join(output_dir, f"processed_{file}")[:-4] # Remove the .csv
+        df.to_parquet(f"{output_file}.parquet", index=False) # Now saved as .pq file
+        print(f"✅ Saved processed file to: {output_file}.parquet")
 
 if __name__ == "__main__":
     import argparse

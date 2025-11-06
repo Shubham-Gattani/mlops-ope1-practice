@@ -1,11 +1,18 @@
-from feast import Entity, Field, FeatureView, FileSource
-from feast.types import Float32, Int64
+from feast import Entity, Field, FeatureView, FileSource, BigQuerySource
+from feast.types import Float32, Int64, String
 from datetime import timedelta
+from feast.data_format import ParquetFormat
 
 # 1️⃣ Define the source — your processed CSV data
-stock_source = FileSource(
-    path="../processed_data/processed_v0/",       # path relative to feature_repo/
-    event_timestamp_column="timestamp",
+# stock_source = FileSource(
+#     path="../processed_data/processed_v0/",       # path relative to feature_repo/
+#     event_timestamp_column="timestamp",
+#     file_format=ParquetFormat(),
+# )
+
+stock_source = BigQuerySource(
+    table="mlops-iris-week1-graded.feast.stock_features_all",
+    timestamp_field="timestamp",
 )
 
 # 2️⃣ Define the entity

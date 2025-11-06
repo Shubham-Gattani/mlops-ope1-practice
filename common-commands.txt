@@ -6,6 +6,7 @@ gcloud config list  # Confirm account = shubham29.gattani@gmail.com
 # CREATE BUCKET
 gsutil mb gs://YOUR_BUCKET_NAME 
 gsutil mb gs://mlops-ope1-shubhamg-practice-bucket # Create bucket
+gsutil ls gs://<your-bucket>/feast/ # To check the registry file.
 
 # GIT THINGS
 git config --global user.name "Shubham-Gattani"
@@ -14,7 +15,7 @@ git config --global user.email "shubham29.iitd@gmail.com"
 # Creating VENV
 python -m venv venv
 source venv/bin/activate
-pip install gcsfs pandas numpy scikit-learn joblib feast
+pip install gcsfs pandas==2.3.3 numpy==2.3.3 scikit-learn==1.7.2 joblib feast==0.54.0 'feast[gcp]'
 pip install dvc==3.63.0 dvc-gs==3.0.2 pytest mlflow==3.5.0 ipykernel
 
 python -m ipykernel install --user --name=venv_name --display-name "Python (venv_name)" # Register the venv with Jupyter
@@ -29,20 +30,164 @@ dvc get <repo_url> <path_inside_repo> [--rev <branch_or_tag>]
 dvc add v0
 
 # Create features for v0 of data
-python python_files/feature_engineering.py --input_dir v0 --output_dir processed_data/processed_v0 
+python python_files/feature_engineering.py --input_dir v0 --output_dir processed_data/processed_v0
+
 
 dvc remote add -d gcsremote gs://mlops-ope1-shubhamg-practice-bucket
 dvc remote list # Check if the bucket is actually configured
 dvc push
+NOTE: DVC remote is NOT used for Feast ingestion.
+Feast needs BigQuery → BigQuery needs GCS parquet uploaded manually using gsutil, NOT dvc push.
+
 
 # FEAST related THINGS
 
 ## Initialize Feast repo
-feast init feature_repo # Inside your project root:
+
+## Step 1️⃣ — Initialize Feast repo
+feast init feature_repo # Inside your project root
+rm feature_repo/example_repo.py # safely delete the sample file:
+
+## Step 2️⃣ — Configure Feast to use BigQuery; edit feature_store.yaml
+
+## Step 3️⃣ — Define Feature Views; create a file feature_repo/features.py
+1. Define a stock entity (e.g., stock symbol or stock name).
+2. Register features: rolling_avg_10, volume_sum_10, and target.
+3. Use the processed data from processed_data/ (or data/processed_v0/, depending on where you saved it).
+
+NOTE: Feast requires an entity key to uniquely identify each row. So, while processing the data, 
+you should make sure that the processed data has a seperated column which can be used as an entity. In this case, it is the "stock_symbol"
+
+NOTE: Feast and BigQuery both REQUIRE timezone-naive UTC timestamps. Hence, 
+after you process the data, first of all, merge it into a file and save it as a parquet file, 
+convert the timestamp column into a atleast timestamp[us], it should never be timestamp[ns]. Then,
+Upload the merged file to GCS: `gsutil cp <merged_file_location> gs://<bucket_name>/feast_parquet/..`
+Then, Load it into BigQuery
+        bq load \
+            --source_format=PARQUET \
+            --autodetect \
+            mlops-iris-week1-graded:feast.stock_features_all \
+            gs://<bucket>/feast_parquet/stock_features_all.parquet
+
+NOTE: Always remove all the NULL values from the features which are used to create feature_views
+
+## Step 4️⃣ — feast apply
+cd feature_repo
+feast apply  # run from inside feature_repo folder
+    1️⃣ Parses your feature_store.yaml
+    Feast reads:
+        Where to store the registry (you configured it in GCS)
+        What’s your offline store (BigQuery)
+        What’s your online store (SQLite for now)
+        Your project name (stock_prediction)
+
+    2️⃣ Scans your feature repo
+    It looks inside your feature_repo/ folder for Python files (like features.py)
+    and finds:
+        Entities (like stock_symbol)
+        Feature views (like stock_features_view)
+        Data sources (your processed CSVs or BigQuery tables)
+
+    3️⃣ Builds the registry
+    Feast then writes metadata about all of these into a registry file:
+        `gs://<your-bucket>/feast/registry.db`
+    That registry is like the “catalog” for all feature definitions in your project.
+    It tells Feast (and your CI jobs later) which features exist, their schema, source, and lineage.
+
+    4️⃣ Creates or validates BigQuery dataset
+    If your offline store (feast_stock_features) doesn’t exist in BigQuery yet, Feast creates it automatically under your GCP project.
+    This is where Feast will later store the ingested feature data.
+
+    ✅ After feast apply:
+        Feast knows all your feature definitions.
+        BigQuery dataset is ready.
+        GCS registry file is updated.
+
+    NOTE:
+    1. After applying `feast apply` command, always go to GCP BQ and confirm is a dataset is formed or not. Or simply run `bq ls`
+    2. If you cannot see anything in BQ, then you may need to assign proper roles to the current user
+        using `gcloud auth list` and then run
+        gcloud projects add-iam-policy-binding mlops-iris-week1-graded \
+        --member="user:shubham29.gattani@gmail.com" \
+        --role="roles/bigquery.admin"
+
+
+
+
+## Step 5️⃣: MATERIALIZE
+feast materialize-incremental $(date +%Y-%m-%d)
+
+✅ What this will do
+
+Materialization = moving data FROM the offline store (BigQuery) INTO the online store (SQLite).
+Feast does NOT ingest files during materialization — ingestion already 
+happened when you loaded parquet → BigQuery.
+
+Feast will:
+    Read all your .pq files from:
+    ../processed_data/processed_v0/
+
+    Convert them into BigQuery tables.
+    Write them into your BQ dataset (feast or feast_stock_features, depending on your YAML).
+
+    Create tables like: feast.stock_features
+    Store each row keyed by: (stock_symbol, timestamp)
+    What you should see in BigQuery after running it
+        Inside your dataset (feast or feast_stock_features), you should see a table named:  stock_features
+
+    NOTE:
+        1. The offline store inside your yaml should be "BigQuery" and youe features.py should also mention "BigQuerySource".
+            Only then the materialization will work.
+        2. When you make any change in the parquet files, then,
+            re-upload them to GCS bucket `gsutil cp processed_data/stock_features_all.parquet gs://<your-bucket>/feast_parquet/`
+            delete the old registry `gsutil rm gs://mlops-ope1-shubhamg-practice-bucket/feast/registry.db`
+            delete the old table from BQ: `bq rm -f mlops-iris-week1-graded:<dataset_name>.<table_name>`
+                                            bq rm -f mlops-iris-week1-graded:feast.stock_features_all
+            load the new data again from GCS bucket to BQ:
+                                                        bq load \
+                                                            --source_format=PARQUET \
+                                                            --autodetect \
+                                                            mlops-iris-week1-graded:feast.stock_features_all \
+                                                            gs://<your-bucket>/feast_parquet/stock_features_all.parquet
+            
+✅ 8. (Optional but helpful): Add “Workflow for updating data”
+
+    This exact sequence is important:
+
+        Regenerate merged parquet
+        Upload to GCS
+        Delete old BQ table
+        Load new parquet into BQ
+        Delete Feast registry
+        feast apply
+        feast materialize-incremental
+    
+    This is your “data refresh workflow.”
 
 
 
 
 
+SQL queries:
+    1. gives exact null counts for each column.
+
+    SELECT
+    COUNTIF(timestamp IS NULL) AS null_timestamp,
+    COUNTIF(rolling_avg_10 IS NULL) AS null_rolling_avg_10,
+    COUNTIF(volume_sum_10 IS NULL) AS null_volume_sum_10,
+    COUNTIF(target IS NULL) AS null_target,
+    COUNTIF(stock_symbol IS NULL) AS null_stock_symbol
+    FROM `mlops-iris-week1-graded.feast.stock_features_all`;
+
+    SELECT
+    COUNTIF(col1 IS NULL) AS col1_nulls,
+    COUNTIF(col2 IS NULL) AS col2_nulls,
+    COUNTIF(col3 IS NULL) AS col3_nulls
+    FROM `project.dataset.table`;
 
 
+2. Confirm timestamp type of a single column
+    SELECT data_type
+    FROM `mlops-iris-week1-graded.feast.INFORMATION_SCHEMA.COLUMNS`
+    WHERE table_name = 'stock_features_all'
+    AND column_name = 'timestamp';
