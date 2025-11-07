@@ -16,3 +16,5 @@ v1/
 model.joblib
 /v0
 processed_data/
+mlruns/
+*joblib

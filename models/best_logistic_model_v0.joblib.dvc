@@ -1,0 +1,5 @@
+outs:
+- md5: ca347fe95e9ea84563a07db5fd89017e
+  size: 1147
+  hash: md5
+  path: best_logistic_model_v0.joblib

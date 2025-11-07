@@ -191,3 +191,14 @@ SQL queries:
     FROM `mlops-iris-week1-graded.feast.INFORMATION_SCHEMA.COLUMNS`
     WHERE table_name = 'stock_features_all'
     AND column_name = 'timestamp';
+
+
+##############  Next major milestone: Model training with Feast as the feature provider
+
+Create test_feast_training.py skeleton  # NOTE: For this dataset, we don't need any PIT joins.
+
+
+
+
+
+
