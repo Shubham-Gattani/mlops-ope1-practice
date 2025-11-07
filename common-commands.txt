@@ -197,6 +197,111 @@ SQL queries:
 
 Create test_feast_training.py skeleton  # NOTE: For this dataset, we don't need any PIT joins.
 
+# ✅ Summary of steps after completing Feast setup (v0)
+
+### ✅ Files created
+
+**1. `python_files/training_v0.py`**
+
+* Loads merged data from BigQuery
+* Trains 2 LogisticRegression models (hyperparam tuning)
+* Logs runs to MLflow
+* Selects best model
+* Saves: `models/best_logistic_model_v0.joblib`
+
+**2. `mlruns/` folder**
+
+* Automatically created by MLflow
+* Stores experiment runs, params, metrics, artifacts
+
+**3. `models/best_logistic_model_v0.joblib.dvc`**
+
+* DVC metadata for the best model
+* Model file stored in remote DVC storage (GCS)
+
+---
+
+# ✅ Commands executed
+
+```bash
+# Run training (creates mlruns + model)
+mlflow ui # To see experiments via MLFlow GUI
+python python_files/training_v0.py
+
+# Track the best model with DVC
+dvc add models/best_logistic_model_v0.joblib
+
+git add models/best_logistic_model_v0.joblib.dvc .gitignore \
+        python_files/training_v0.py python_files/test_feast_training.py \
+        common-commands.txt
+git commit -m "Add best logistic model for v0 (DVC tracked)"
+
+dvc push
+git push
+
+# Tag the v0 pipeline for easy rollback
+git tag -a v0 -m "Completed v0 pipeline"
+git push origin v0
+```
+
+---
+
+# ✅ Final output of v0 iteration
+
+* ✅ Clean training script (`training_v0.py`)
+* ✅ Two MLflow runs logged
+* ✅ Best model saved & tracked in DVC
+* ✅ Code + metadata committed to Git
+* ✅ v0 pipeline tagged as `v0`
+
+---
+
+Great — **Iteration 2 (v1)** is where you demonstrate *continuous learning*, which earns high marks.
+
+We will follow a clean and simple 5-step plan.
+
+################ ITERATION 2 ON V1 ###################
+
+
+# ✅ **ITERATION 2 (v1) — PLAN**
+
+### ✅ Step 1 — Download v1 data
+dvc get https://github.com/Shubham-Gattani/Continuous-Learning-Repo temp/v1 # From project root
+
+### ✅ Step 2 — Process v1 data using `feature_engineering.py`
+python python_files/feature_engineering.py --input_dir v1 --output_dir processed_data/processed_v1
+
+
+### ✅ Step 3 — Merge v0 + v1 into a new training dataset
+python python_files/merge_v0_v1.py
+
+
+### ✅ Step 4 — Upload merged dataset → GCS → Load to BigQuery
+
+# Upload merged_v1 parquet to GCS
+gsutil cp processed_data/merged_files/stock_features_all_v1.parquet \
+gs://mlops-ope1-shubhamg-practice-bucket/feast_parquet/ 
+
+bq rm -f mlops-iris-week1-graded:feast.stock_features_all # Delete old table
+
+# Load new v1 merged parquet into BigQuery
+
+### ✅ Step 5 — Train v1 model → MLflow → pick best → DVC track
+Create File: python_files/training_v1.py
+    ✅ new MLflow experiment: stock_prediction_v1
+    ✅ new model output: best_logistic_model_v1.joblib
+    ✅ still uses the same BigQuery table, which now contains v0+v1 data
+
+
+### ✅ Step 6 — Tag as `v1`
+dvc add v1/ models/best_logistic_model_v1.joblib
+git add v1.dvc models/best_logistic_model_v1.joblib.dvc python_files/training_v1.py
+git commit -m "Add best logistic model for v1 (DVC tracked)"
+dvc push
+git push
+git tag -a v1 -m "Completed v1 pipeline (v0+v1 training, MLflow, DVC)"
+git push origin v1
+
 
 
 
