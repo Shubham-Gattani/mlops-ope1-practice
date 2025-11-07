@@ -32,6 +32,9 @@ jobs:
       run: |
         echo "✅ Running simple test..."
         pytest -q
+      
+    - name: Install CML
+      run: npm install -g @dvcorg/cml
 
     - name: CML message
       run: |
