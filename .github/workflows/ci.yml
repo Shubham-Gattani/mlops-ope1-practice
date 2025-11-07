@@ -37,6 +37,8 @@ jobs:
       run: npm install -g @dvcorg/cml
 
     - name: CML message
+      env:
+        REPO_TOKEN: ${{ secrets.GH_PAT }}    
       run: |
         echo "✅ CML: Training pipeline validated!" > report.md
         cml comment create report.md
