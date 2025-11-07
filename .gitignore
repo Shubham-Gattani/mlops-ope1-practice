@@ -18,3 +18,4 @@ model.joblib
 processed_data/
 mlruns/
 *joblib
+/v1
